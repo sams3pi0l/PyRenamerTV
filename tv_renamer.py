@@ -15,7 +15,11 @@ from typing import Optional, Dict, List, Tuple
 class TMDBRenamer:
     """Rename TV series files using TMDB API"""
     
-    def __init__(self, api_token: str, config_file: str = "mytvnamerconfig.json"):
+    def __init__(self, api_token: str, config_file: str = "mytvnamerconfig.json",
+                 result_index: int = 1):
+        if not 1 <= result_index <= 5:
+            raise ValueError("Il risultato deve essere un numero da 1 a 5")
+        self.result_index = result_index
         self.api_token = api_token
         self.base_url = "https://api.themoviedb.org/3"
         self.config = self.load_config(config_file)
@@ -128,8 +132,11 @@ class TMDBRenamer:
                     year = show.get('first_air_date', 'N/A')[:4] if show.get('first_air_date') else 'N/A'
                     print(f"  {idx}. {show['name']} ({year}) - ID: {show['id']}")
                 
-                # Return first result ID (or allow user selection)
-                return data['results'][0]['id']
+                if self.result_index > len(data['results'][:5]):
+                    print(f"Errore: risultato {self.result_index} non disponibile "
+                          f"per '{series_name}'. Nessuna rinomina per questa serie.")
+                    return None
+                return data['results'][self.result_index - 1]['id']
             else:
                 print(f"No results found for '{series_name}'")
                 return None
@@ -326,6 +333,15 @@ class TMDBRenamer:
         if not path.exists():
             print(f"Error: File not found: {filepath}")
             return False
+
+        # Files already in the output format are successfully skipped.
+        already_renamed = re.fullmatch(r'.+ \(\d+x\d{2,}\) .+', path.stem)
+        renamed_special = re.fullmatch(
+            r'(?:Jimmy Kimmel Live!|The Daily Show) \(\d{4}\.\d{2}\.\d{2}\) .+',
+            path.stem)
+        if already_renamed or renamed_special:
+            print(f"Ignorato (gia rinominato): {path.name}")
+            return True
         
         # Check if this is a Jimmy Kimmel file (special handling)
         if path.stem.startswith("Jimmy.Kimmel"):
@@ -412,10 +428,13 @@ class TMDBRenamer:
         print(f"Found {len(files)} video files")
         
         results = []
+        self.directory_success = True
         for file in files:
             print(f"\n{'='*60}")
             if self.rename_file(str(file), dry_run):
                 results.append(str(file))
+            else:
+                self.directory_success = False
         
         return results
 
@@ -433,20 +452,26 @@ def main():
                        help='Show changes without renaming')
     parser.add_argument('--recursive', '-r', action='store_true',
                        help='Process directories recursively')
+    parser.add_argument('--result', type=int, choices=range(1, 6), default=1,
+                        help='Search result to use (1-5, default: 1)')
     
     args = parser.parse_args()
     
-    renamer = TMDBRenamer(args.api_token, args.config)
+    renamer = TMDBRenamer(args.api_token, args.config, args.result)
+    success = True
     
     for item in args.files:
         path = Path(item)
         if path.is_dir():
             renamer.rename_directory(str(path), args.dry_run, args.recursive)
+            success = renamer.directory_success and success
         elif path.is_file():
-            renamer.rename_file(str(path), args.dry_run)
+            success = renamer.rename_file(str(path), args.dry_run) and success
         else:
             print(f"Error: Not found: {item}")
+            success = False
+    return 0 if success else 1
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

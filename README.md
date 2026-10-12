@@ -10,6 +10,22 @@ pip install requests
 
 ## Uso Base
 
+### Avvio con rename.bat
+
+Dopo l'anteprima, premi **Invio** per applicare il primo risultato, oppure
+digita **2**, **3**, **4** (o **5**, se mostrato) e premi Invio per applicare
+i titoli della serie corrispondente. **1** equivale a Invio; **N** o **NO** annulla.
+Una scelta non disponibile non ripiega sul primo risultato e viene segnalata
+come errore. Per una cartella, il numero scelto vale per ogni ricerca di serie.
+I file già nel formato di output vengono ignorati, senza bloccare l'anteprima o la rinomina degli altri file.
+
+Da riga di comando puoi usare, ad esempio:
+
+```bash
+python rename.py "LOST.S01E01.MKV" --result 2 --dry-run
+python rename.py "LOST.S01E01.MKV" --result 2
+```
+
 ### Metodo Semplice (usando rename.py - legge token da config.json)
 
 #### Test (Dry Run - senza modificare i file)
